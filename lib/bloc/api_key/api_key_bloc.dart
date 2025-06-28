@@ -20,9 +20,8 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   DateTime? _lastUsage;
 
   ApiKeyBloc({ApiKeyService? apiKeyService})
-      : _apiKeyService = apiKeyService ?? ApiKeyService.instance,
-        super(const ApiKeyInitial()) {
-    
+    : _apiKeyService = apiKeyService ?? ApiKeyService.instance,
+      super(const ApiKeyInitial()) {
     on<InitializeApiKey>(_onInitializeApiKey);
     on<SetApiKey>(_onSetApiKey);
     on<ValidateApiKey>(_onValidateApiKey);
@@ -67,12 +66,14 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
         final isValid = _apiKeyService.isValid;
         final hasCompletedSetup = _apiKeyService.hasCompletedSetup;
 
-        emit(ApiKeyLoaded(
-          apiKey: apiKey,
-          isValid: isValid,
-          hasCompletedSetup: hasCompletedSetup,
-          lastValidated: DateTime.now(),
-        ));
+        emit(
+          ApiKeyLoaded(
+            apiKey: apiKey,
+            isValid: isValid,
+            hasCompletedSetup: hasCompletedSetup,
+            lastValidated: DateTime.now(),
+          ),
+        );
 
         // Auto-validate if needed
         if (!isValid) {
@@ -86,10 +87,7 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     }
   }
 
-  Future<void> _onSetApiKey(
-    SetApiKey event,
-    Emitter<ApiKeyState> emit,
-  ) async {
+  Future<void> _onSetApiKey(SetApiKey event, Emitter<ApiKeyState> emit) async {
     try {
       if (event.apiKey.trim().isEmpty) {
         emit(const ApiKeyError(message: 'API key cannot be empty'));
@@ -98,28 +96,26 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
 
       // Validate the API key format
       if (!_isValidApiKeyFormat(event.apiKey)) {
-        emit(ApiKeyError(
-          message: 'Invalid API key format',
-          apiKey: event.apiKey,
-        ));
+        emit(
+          ApiKeyError(message: 'Invalid API key format', apiKey: event.apiKey),
+        );
         return;
       }
 
       await _apiKeyService.setApiKey(event.apiKey);
-      
-      emit(ApiKeySaved(
-        apiKey: event.apiKey,
-        savedAt: DateTime.now(),
-        securelyStored: true,
-      ));
+
+      emit(
+        ApiKeySaved(
+          apiKey: event.apiKey,
+          savedAt: DateTime.now(),
+          securelyStored: true,
+        ),
+      );
 
       // Validate the new API key
       add(ValidateApiKey(apiKey: event.apiKey));
     } catch (e) {
-      emit(ApiKeyError(
-        message: e.toString(),
-        apiKey: event.apiKey,
-      ));
+      emit(ApiKeyError(message: e.toString(), apiKey: event.apiKey));
     }
   }
 
@@ -136,56 +132,70 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
 
       if (isValid) {
         await _apiKeyService.setApiKey(event.apiKey);
-        
-        emit(ApiKeyValid(
-          apiKey: event.apiKey,
-          validatedAt: DateTime.now(),
-          validationDetails: {
-            'method': 'gemini_test',
-            'timestamp': DateTime.now().toIso8601String(),
-          },
-        ));
+
+        emit(
+          ApiKeyValid(
+            apiKey: event.apiKey,
+            validatedAt: DateTime.now(),
+            validationDetails: {
+              'method': 'gemini_test',
+              'timestamp': DateTime.now().toIso8601String(),
+            },
+          ),
+        );
 
         // Update to loaded state
-        emit(ApiKeyLoaded(
-          apiKey: event.apiKey,
-          isValid: true,
-          hasCompletedSetup: _apiKeyService.hasCompletedSetup,
-          lastValidated: DateTime.now(),
-        ));
+        emit(
+          ApiKeyLoaded(
+            apiKey: event.apiKey,
+            isValid: true,
+            hasCompletedSetup: _apiKeyService.hasCompletedSetup,
+            lastValidated: DateTime.now(),
+          ),
+        );
 
         // Log successful validation
-        add(LogApiKeyUsage(
-          operation: 'validation',
-          success: true,
-          timestamp: DateTime.now(),
-        ));
+        add(
+          LogApiKeyUsage(
+            operation: 'validation',
+            success: true,
+            timestamp: DateTime.now(),
+          ),
+        );
       } else {
-        emit(ApiKeyInvalid(
-          apiKey: event.apiKey,
-          reason: 'API key validation failed',
-          invalidatedAt: DateTime.now(),
-        ));
+        emit(
+          ApiKeyInvalid(
+            apiKey: event.apiKey,
+            reason: 'API key validation failed',
+            invalidatedAt: DateTime.now(),
+          ),
+        );
 
         // Log failed validation
-        add(LogApiKeyUsage(
+        add(
+          LogApiKeyUsage(
+            operation: 'validation',
+            success: false,
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+    } catch (e) {
+      emit(
+        ApiKeyError(
+          message: 'Validation failed: ${e.toString()}',
+          apiKey: event.apiKey,
+        ),
+      );
+
+      // Log validation error
+      add(
+        LogApiKeyUsage(
           operation: 'validation',
           success: false,
           timestamp: DateTime.now(),
-        ));
-      }
-    } catch (e) {
-      emit(ApiKeyError(
-        message: 'Validation failed: ${e.toString()}',
-        apiKey: event.apiKey,
-      ));
-
-      // Log validation error
-      add(LogApiKeyUsage(
-        operation: 'validation',
-        success: false,
-        timestamp: DateTime.now(),
-      ));
+        ),
+      );
     }
   }
 
@@ -195,7 +205,7 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   ) async {
     try {
       await _apiKeyService.clearApiKey();
-      
+
       emit(ApiKeyCleared(clearedAt: DateTime.now()));
       emit(const ApiKeyEmpty());
     } catch (e) {
@@ -228,45 +238,57 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       final testResult = await geminiService.testConnection(event.apiKey);
 
       if (testResult['success'] == true) {
-        emit(ApiKeyTestSuccess(
-          apiKey: event.apiKey,
-          testedAt: DateTime.now(),
-          testResults: testResult,
-        ));
+        emit(
+          ApiKeyTestSuccess(
+            apiKey: event.apiKey,
+            testedAt: DateTime.now(),
+            testResults: testResult,
+          ),
+        );
 
         // Log successful test
-        add(LogApiKeyUsage(
-          operation: 'connection_test',
-          success: true,
-          timestamp: DateTime.now(),
-        ));
+        add(
+          LogApiKeyUsage(
+            operation: 'connection_test',
+            success: true,
+            timestamp: DateTime.now(),
+          ),
+        );
       } else {
-        emit(ApiKeyTestFailure(
-          apiKey: event.apiKey,
-          reason: testResult['error'] ?? 'Connection test failed',
-          testedAt: DateTime.now(),
-        ));
+        emit(
+          ApiKeyTestFailure(
+            apiKey: event.apiKey,
+            reason: testResult['error'] ?? 'Connection test failed',
+            testedAt: DateTime.now(),
+          ),
+        );
 
         // Log failed test
-        add(LogApiKeyUsage(
+        add(
+          LogApiKeyUsage(
+            operation: 'connection_test',
+            success: false,
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+    } catch (e) {
+      emit(
+        ApiKeyTestFailure(
+          apiKey: event.apiKey,
+          reason: e.toString(),
+          testedAt: DateTime.now(),
+        ),
+      );
+
+      // Log test error
+      add(
+        LogApiKeyUsage(
           operation: 'connection_test',
           success: false,
           timestamp: DateTime.now(),
-        ));
-      }
-    } catch (e) {
-      emit(ApiKeyTestFailure(
-        apiKey: event.apiKey,
-        reason: e.toString(),
-        testedAt: DateTime.now(),
-      ));
-
-      // Log test error
-      add(LogApiKeyUsage(
-        operation: 'connection_test',
-        success: false,
-        timestamp: DateTime.now(),
-      ));
+        ),
+      );
     }
   }
 
@@ -276,20 +298,24 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   ) async {
     try {
       await _apiKeyService.completeSetup();
-      
-      emit(ApiKeySetupCompleted(
-        apiKey: _apiKeyService.apiKey ?? '',
-        completedAt: DateTime.now(),
-      ));
+
+      emit(
+        ApiKeySetupCompleted(
+          apiKey: _apiKeyService.apiKey ?? '',
+          completedAt: DateTime.now(),
+        ),
+      );
 
       // Return to loaded state
       if (_apiKeyService.hasApiKey) {
-        emit(ApiKeyLoaded(
-          apiKey: _apiKeyService.apiKey!,
-          isValid: _apiKeyService.isValid,
-          hasCompletedSetup: true,
-          lastValidated: DateTime.now(),
-        ));
+        emit(
+          ApiKeyLoaded(
+            apiKey: _apiKeyService.apiKey!,
+            isValid: _apiKeyService.isValid,
+            hasCompletedSetup: true,
+            lastValidated: DateTime.now(),
+          ),
+        );
       }
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
@@ -302,7 +328,7 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   ) async {
     try {
       await _apiKeyService.resetSetup();
-      
+
       emit(ApiKeySetupReset(resetAt: DateTime.now()));
       emit(const ApiKeyEmpty());
     } catch (e) {
@@ -324,21 +350,25 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_settingsKey, json.encode(settings));
 
-      emit(ApiKeySettingsUpdated(
-        autoValidate: event.autoValidate,
-        saveSecurely: event.saveSecurely,
-        validationTimeout: event.validationTimeout,
-        updatedAt: DateTime.now(),
-      ));
+      emit(
+        ApiKeySettingsUpdated(
+          autoValidate: event.autoValidate,
+          saveSecurely: event.saveSecurely,
+          validationTimeout: event.validationTimeout,
+          updatedAt: DateTime.now(),
+        ),
+      );
 
       // Update current state if loaded
       if (state is ApiKeyLoaded) {
         final currentState = state as ApiKeyLoaded;
-        emit(currentState.copyWith(
-          autoValidate: event.autoValidate,
-          saveSecurely: event.saveSecurely,
-          validationTimeout: event.validationTimeout,
-        ));
+        emit(
+          currentState.copyWith(
+            autoValidate: event.autoValidate,
+            saveSecurely: event.saveSecurely,
+            validationTimeout: event.validationTimeout,
+          ),
+        );
       }
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
@@ -361,17 +391,16 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     HandleApiKeyError event,
     Emitter<ApiKeyState> emit,
   ) async {
-    emit(ApiKeyError(
-      message: event.error,
-      errorCode: event.errorCode,
-    ));
+    emit(ApiKeyError(message: event.error, errorCode: event.errorCode));
 
     // Log error
-    add(LogApiKeyUsage(
-      operation: 'error_handling',
-      success: false,
-      timestamp: DateTime.now(),
-    ));
+    add(
+      LogApiKeyUsage(
+        operation: 'error_handling',
+        success: false,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   Future<void> _onBackupApiKey(
@@ -382,7 +411,7 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       if (state is ApiKeyLoaded) {
         final currentState = state as ApiKeyLoaded;
         final backupId = DateTime.now().millisecondsSinceEpoch.toString();
-        
+
         final backupData = {
           'apiKey': currentState.apiKey,
           'isValid': currentState.isValid,
@@ -393,12 +422,12 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
         };
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('api_key_backup_$backupId', json.encode(backupData));
+        await prefs.setString(
+          'api_key_backup_$backupId',
+          json.encode(backupData),
+        );
 
-        emit(ApiKeyBackedUp(
-          backupTime: DateTime.now(),
-          backupId: backupId,
-        ));
+        emit(ApiKeyBackedUp(backupTime: DateTime.now(), backupId: backupId));
       }
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
@@ -415,12 +444,14 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       final backupId = backupData['backupId'] as String;
 
       await _apiKeyService.setApiKey(apiKey);
-      
-      emit(ApiKeyRestored(
-        apiKey: apiKey,
-        restoreTime: DateTime.now(),
-        backupId: backupId,
-      ));
+
+      emit(
+        ApiKeyRestored(
+          apiKey: apiKey,
+          restoreTime: DateTime.now(),
+          backupId: backupId,
+        ),
+      );
 
       // Validate restored API key
       add(ValidateApiKey(apiKey: apiKey));
@@ -435,15 +466,17 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   ) async {
     if (state is ApiKeyLoaded) {
       final currentState = state as ApiKeyLoaded;
-      
+
       // Check if API key needs validation (simple expiry check)
       if (currentState.needsValidation) {
-        emit(ApiKeyExpired(
-          apiKey: currentState.apiKey,
-          expiredAt: DateTime.now(),
-          reason: 'API key validation expired',
-        ));
-        
+        emit(
+          ApiKeyExpired(
+            apiKey: currentState.apiKey,
+            expiredAt: DateTime.now(),
+            reason: 'API key validation expired',
+          ),
+        );
+
         // Auto-validate if enabled
         if (currentState.autoValidate) {
           add(ValidateApiKey(apiKey: currentState.apiKey));
@@ -463,12 +496,14 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       }
 
       await _apiKeyService.setApiKey(event.newApiKey);
-      
-      emit(ApiKeyRenewed(
-        oldApiKey: oldApiKey ?? '',
-        newApiKey: event.newApiKey,
-        renewedAt: DateTime.now(),
-      ));
+
+      emit(
+        ApiKeyRenewed(
+          oldApiKey: oldApiKey ?? '',
+          newApiKey: event.newApiKey,
+          renewedAt: DateTime.now(),
+        ),
+      );
 
       // Validate new API key
       add(ValidateApiKey(apiKey: event.newApiKey));
@@ -483,10 +518,12 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
   ) async {
     // This would typically set up a timer for auto-refresh
     // For now, just update settings
-    add(UpdateApiKeySettings(
-      autoValidate: event.enabled,
-      validationTimeout: event.refreshInterval,
-    ));
+    add(
+      UpdateApiKeySettings(
+        autoValidate: event.enabled,
+        validationTimeout: event.refreshInterval,
+      ),
+    );
   }
 
   Future<void> _onLogApiKeyUsage(
@@ -501,18 +538,21 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
         _failedRequests++;
       }
 
-      _operationCounts[event.operation] = (_operationCounts[event.operation] ?? 0) + 1;
-      
+      _operationCounts[event.operation] =
+          (_operationCounts[event.operation] ?? 0) + 1;
+
       _firstUsage ??= event.timestamp;
       _lastUsage = event.timestamp;
 
       await _saveUsageStats();
 
-      emit(ApiKeyUsageLogged(
-        operation: event.operation,
-        success: event.success,
-        timestamp: event.timestamp,
-      ));
+      emit(
+        ApiKeyUsageLogged(
+          operation: event.operation,
+          success: event.success,
+          timestamp: event.timestamp,
+        ),
+      );
     } catch (e) {
       // Handle error silently for usage logging
     }
@@ -523,15 +563,17 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     Emitter<ApiKeyState> emit,
   ) async {
     await _loadUsageStats();
-    
-    emit(ApiKeyUsageStats(
-      totalRequests: _totalRequests,
-      successfulRequests: _successfulRequests,
-      failedRequests: _failedRequests,
-      firstUsage: _firstUsage ?? DateTime.now(),
-      lastUsage: _lastUsage ?? DateTime.now(),
-      operationCounts: Map.from(_operationCounts),
-    ));
+
+    emit(
+      ApiKeyUsageStats(
+        totalRequests: _totalRequests,
+        successfulRequests: _successfulRequests,
+        failedRequests: _failedRequests,
+        firstUsage: _firstUsage ?? DateTime.now(),
+        lastUsage: _lastUsage ?? DateTime.now(),
+        operationCounts: Map.from(_operationCounts),
+      ),
+    );
   }
 
   Future<void> _onClearApiKeyUsageStats(
@@ -549,14 +591,16 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_usageStatsKey);
 
-      emit(ApiKeyUsageStats(
-        totalRequests: 0,
-        successfulRequests: 0,
-        failedRequests: 0,
-        firstUsage: DateTime.now(),
-        lastUsage: DateTime.now(),
-        operationCounts: {},
-      ));
+      emit(
+        ApiKeyUsageStats(
+          totalRequests: 0,
+          successfulRequests: 0,
+          failedRequests: 0,
+          firstUsage: DateTime.now(),
+          lastUsage: DateTime.now(),
+          operationCounts: {},
+        ),
+      );
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
     }
@@ -577,14 +621,13 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
         apiKey = event.qrData;
       }
 
-      emit(ApiKeyFromQRSet(
-        apiKey: apiKey,
-        setAt: DateTime.now(),
-      ));
+      emit(ApiKeyFromQRSet(apiKey: apiKey, setAt: DateTime.now()));
 
       add(SetApiKey(apiKey: apiKey));
     } catch (e) {
-      emit(ApiKeyError(message: 'Failed to set API key from QR: ${e.toString()}'));
+      emit(
+        ApiKeyError(message: 'Failed to set API key from QR: ${e.toString()}'),
+      );
     }
   }
 
@@ -595,17 +638,14 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     try {
       if (state is ApiKeyLoaded) {
         final currentState = state as ApiKeyLoaded;
-        
+
         final qrData = json.encode({
           'apiKey': currentState.apiKey,
           'timestamp': DateTime.now().toIso8601String(),
           'app': 'Aqar Zone',
         });
 
-        emit(ApiKeyQRGenerated(
-          qrData: qrData,
-          generatedAt: DateTime.now(),
-        ));
+        emit(ApiKeyQRGenerated(qrData: qrData, generatedAt: DateTime.now()));
       }
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
@@ -619,7 +659,7 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     try {
       if (state is ApiKeyLoaded) {
         final currentState = state as ApiKeyLoaded;
-        
+
         final exportedSettings = {
           'autoValidate': currentState.autoValidate,
           'saveSecurely': currentState.saveSecurely,
@@ -629,10 +669,12 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
           'version': '1.0',
         };
 
-        emit(ApiKeySettingsExported(
-          exportedSettings: exportedSettings,
-          exportTime: DateTime.now(),
-        ));
+        emit(
+          ApiKeySettingsExported(
+            exportedSettings: exportedSettings,
+            exportTime: DateTime.now(),
+          ),
+        );
       }
     } catch (e) {
       emit(ApiKeyError(message: e.toString()));
@@ -644,21 +686,25 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     Emitter<ApiKeyState> emit,
   ) async {
     try {
-      emit(ApiKeySettingsImported(
-        importedSettings: event.settings,
-        importTime: DateTime.now(),
-      ));
+      emit(
+        ApiKeySettingsImported(
+          importedSettings: event.settings,
+          importTime: DateTime.now(),
+        ),
+      );
 
       // Apply imported settings
       final autoValidate = event.settings['autoValidate'] ?? true;
       final saveSecurely = event.settings['saveSecurely'] ?? true;
       final timeoutSeconds = event.settings['validationTimeout'] ?? 10;
 
-      add(UpdateApiKeySettings(
-        autoValidate: autoValidate,
-        saveSecurely: saveSecurely,
-        validationTimeout: Duration(seconds: timeoutSeconds),
-      ));
+      add(
+        UpdateApiKeySettings(
+          autoValidate: autoValidate,
+          saveSecurely: saveSecurely,
+          validationTimeout: Duration(seconds: timeoutSeconds),
+        ),
+      );
     } catch (e) {
       emit(ApiKeyError(message: 'Failed to import settings: ${e.toString()}'));
     }
@@ -692,14 +738,16 @@ class ApiKeyBloc extends Bloc<ApiKeyEvent, ApiKeyState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final statsJson = prefs.getString(_usageStatsKey);
-      
+
       if (statsJson != null) {
         final stats = json.decode(statsJson);
         _totalRequests = stats['totalRequests'] ?? 0;
         _successfulRequests = stats['successfulRequests'] ?? 0;
         _failedRequests = stats['failedRequests'] ?? 0;
-        _operationCounts = Map<String, int>.from(stats['operationCounts'] ?? {});
-        
+        _operationCounts = Map<String, int>.from(
+          stats['operationCounts'] ?? {},
+        );
+
         if (stats['firstUsage'] != null) {
           _firstUsage = DateTime.parse(stats['firstUsage']);
         }
