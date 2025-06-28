@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 
 class EnhancedChatHeader extends StatefulWidget {
   final TextEditingController apiKeyController;
@@ -100,10 +101,10 @@ class _EnhancedChatHeaderState extends State<EnhancedChatHeader>
                       ],
                     ),
                   ),
-                  child: Icon(
-                    Icons.smart_toy_rounded,
-                    color: theme.colorScheme.onPrimary,
-                    size: 24,
+                  child: SvgPicture.asset(
+                    'assets/icons/siri-stroke-rounded.svg',
+                    width: 24,
+                    height: 24,
                   ),
                 ),
                 const SizedBox(width: 12),
