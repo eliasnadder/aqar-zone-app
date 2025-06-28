@@ -14,7 +14,7 @@ class EnhancedEmptyState extends StatefulWidget {
     Key? key,
     this.title = 'Start a conversation',
     this.subtitle = 'Ask me anything you\'d like to know!',
-    this.subtitle2 = 'Property title',
+    this.subtitle2 = '',
     this.icon = Icons.chat_bubble_outline_rounded,
     this.suggestions = const [],
     this.onSuggestionTap,
