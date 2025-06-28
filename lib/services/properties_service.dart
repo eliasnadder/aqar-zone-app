@@ -1,18 +1,51 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/property.dart';
-import '../models/agent.dart';
+import 'package:flutter/foundation.dart';
+import '../models/property_model.dart';
+import '../models/paginated_response.dart';
 
 class PropertiesService {
   static const String baseUrl =
-      'http://192.168.99.209:8000/api'; // Replace with your actual API URL
+      'https://state-ecommerce-production.up.railway.app/api';
 
-  static Future<List<Property>> getProperties() async {
+  // Instance methods for BLoC compatibility
+
+  /// Get properties with pagination and filtering support
+  Future<PaginatedResponse<Property>> getProperties({
+    int page = 1,
+    int limit = 20,
+    String? searchQuery,
+    Map<String, dynamic>? filters,
+  }) async {
     try {
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'per_page': limit.toString(),
+      };
+
+      // Add search query if provided
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queryParams['search'] = searchQuery;
+      }
+
+      // Add filters if provided
+      if (filters != null) {
+        filters.forEach((key, value) {
+          if (value != null) {
+            queryParams[key] = value.toString();
+          }
+        });
+      }
+
+      final uri = Uri.parse(
+        '$baseUrl/user/properties',
+      ).replace(queryParameters: queryParams);
+
       final response = await http.get(
-        Uri.parse('$baseUrl/user/properties'),
+        uri,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           // Add authentication headers if needed
           // 'Authorization': 'Bearer $token',
         },
@@ -20,143 +53,134 @@ class PropertiesService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<dynamic> propertiesJson = data['data'] ?? [];
-
-        return propertiesJson.map((json) => Property.fromJson(json)).toList();
+        return PaginatedResponse.fromJson(data, Property.fromJson);
       } else {
+        debugPrint('API Error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load properties: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('Error fetching properties: $e');
       throw Exception('Error fetching properties: $e');
     }
   }
 
-  static Future<Property> getPropertyById(String id) async {
+  // Legacy static method for backward compatibility
+  static Future<List<Property>> getPropertiesStatic() async {
+    final service = PropertiesService();
+    final paginatedResponse = await service.getProperties();
+    return paginatedResponse.data;
+  }
+
+  /// Get property by ID
+  Future<Property?> getPropertyById(String id) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/properties/$id'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           // Add authentication headers if needed
           // 'Authorization': 'Bearer $token',
         },
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return Property.fromJson(data['data']);
+        final responseBody = response.body;
+        if (responseBody.isEmpty) {
+          debugPrint('Empty response body for property: $id');
+          return null;
+        }
+
+        try {
+          final Map<String, dynamic> data = jsonDecode(responseBody);
+
+          // Handle both direct property response and wrapped response
+          if (data.containsKey('data') && data['data'] != null) {
+            return Property.fromJson(data['data']);
+          } else if (data.isNotEmpty) {
+            return Property.fromJson(data);
+          } else {
+            debugPrint('No property data in response for: $id');
+            return null;
+          }
+        } catch (jsonError) {
+          debugPrint('JSON parsing error for property $id: $jsonError');
+          return null;
+        }
+      } else if (response.statusCode == 404) {
+        debugPrint('Property not found: $id');
+        return null;
       } else {
-        throw Exception('Failed to load property: ${response.statusCode}');
+        debugPrint('API Error: ${response.statusCode} - ${response.body}');
+        return null;
       }
     } catch (e) {
-      throw Exception('Error fetching property: $e');
+      debugPrint('Error fetching property: $e');
+      return null;
     }
   }
 
-  // Mock data for testing purposes
-  static List<Property> getMockProperties() {
-    return [
-      Property(
-        id: '1',
-        title: 'Modern Apartment in Downtown',
-        description:
-            'Beautiful 2-bedroom apartment with city views. This stunning property features floor-to-ceiling windows, modern appliances, and premium finishes throughout. Located in the heart of the city with easy access to public transportation, shopping, and dining.',
-        price: 250000,
-        currency: 'USD',
-        type: 'Apartment',
-        adType: 'Sale',
-        address: '123 Main St',
-        areaName: 'Downtown',
-        cityName: 'New York',
-        area: 85.5,
-        bedrooms: 2,
-        bathrooms: 2,
-        images: ['image1.jpg', 'image2.jpg'],
-        latitude: 40.7128,
-        longitude: -74.0060,
-        agent: const Agent(
-          id: '1',
-          name: 'Sarah Johnson',
-          email: 'sarah.johnson@aqarzone.com',
-          phone: '+1 (555) 123-4567',
-          company: 'Aqar Zone Real Estate',
-          rating: 4.8,
-          reviewsCount: 127,
-          bio:
-              'Experienced real estate agent specializing in downtown properties.',
-          specialties: [
-            'Downtown Properties',
-            'First-time Buyers',
-            'Investment Properties',
-          ],
-        ),
-      ),
-      Property(
-        id: '2',
-        title: 'Luxury Villa with Pool',
-        description:
-            'Spacious villa with private pool and garden. This magnificent property offers luxury living with a private swimming pool, landscaped gardens, and spacious interiors. Perfect for families looking for comfort and elegance in a prestigious neighborhood.',
-        price: 1500,
-        currency: 'USD',
-        type: 'Villa',
-        adType: 'Rent',
-        address: '456 Oak Ave',
-        areaName: 'Suburbs',
-        cityName: 'Los Angeles',
-        area: 300.0,
-        bedrooms: 4,
-        bathrooms: 3,
-        images: ['villa1.jpg', 'villa2.jpg'],
-        latitude: 34.0522,
-        longitude: -118.2437,
-        agent: const Agent(
-          id: '2',
-          name: 'Michael Chen',
-          email: 'michael.chen@aqarzone.com',
-          phone: '+1 (555) 987-6543',
-          company: 'Aqar Zone Real Estate',
-          rating: 4.9,
-          reviewsCount: 89,
-          bio:
-              'Luxury property specialist with expertise in high-end residential sales.',
-          specialties: ['Luxury Properties', 'Villa Sales', 'High-end Rentals'],
-        ),
-      ),
-      Property(
-        id: '3',
-        title: 'Cozy Studio Near University',
-        description:
-            'Perfect for students, fully furnished. This charming studio apartment is ideally located near the university campus. Fully furnished with modern amenities, high-speed internet, and all utilities included. Great for students or young professionals.',
-        price: 800,
-        currency: 'USD',
-        type: 'Studio',
-        adType: 'Rent',
-        address: '789 College Rd',
-        areaName: 'University District',
-        cityName: 'Boston',
-        area: 35.0,
-        bedrooms: 1,
-        bathrooms: 1,
-        images: ['studio1.jpg'],
-        latitude: 42.3601,
-        longitude: -71.0589,
-        agent: const Agent(
-          id: '3',
-          name: 'Emily Rodriguez',
-          email: 'emily.rodriguez@aqarzone.com',
-          phone: '+1 (555) 456-7890',
-          company: 'Aqar Zone Real Estate',
-          rating: 4.7,
-          reviewsCount: 156,
-          bio:
-              'Student housing specialist helping students find perfect accommodations.',
-          specialties: [
-            'Student Housing',
-            'Rental Properties',
-            'University Area',
-          ],
-        ),
-      ),
-    ];
+  /// Get property by ad number
+  Future<Property?> getPropertyByAdNumber(String adNumber) async {
+    try {
+      final response = await getProperties(searchQuery: adNumber);
+      final properties =
+          response.data.where((p) => p.adNumber == adNumber).toList();
+      return properties.isNotEmpty ? properties.first : null;
+    } catch (e) {
+      debugPrint('Error fetching property by ad number: $e');
+      return null;
+    }
+  }
+
+  /// Get similar properties based on property characteristics
+  Future<List<Property>> getSimilarProperties(
+    String propertyId, {
+    int limit = 5,
+  }) async {
+    try {
+      // For now, just return recent properties
+      // In a real implementation, this would use ML or similarity algorithms
+      final response = await getProperties(limit: limit);
+      final targetId = int.tryParse(propertyId);
+      return response.data.where((p) => p.id != targetId).take(limit).toList();
+    } catch (e) {
+      debugPrint('Error fetching similar properties: $e');
+      return [];
+    }
+  }
+
+  /// Increment property views (mock implementation)
+  Future<int> incrementPropertyViews(String propertyId) async {
+    try {
+      // In a real implementation, this would make an API call to increment views
+      // For now, return a mock incremented view count
+      await Future.delayed(const Duration(milliseconds: 100));
+      return DateTime.now().millisecondsSinceEpoch % 1000; // Mock view count
+    } catch (e) {
+      debugPrint('Error incrementing property views: $e');
+      return 0;
+    }
+  }
+
+  // Static methods for backward compatibility
+
+  /// Get properties with pagination support (static version)
+  static Future<PaginatedResponse<Property>> getPropertiesPaginated({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final service = PropertiesService();
+    return await service.getProperties(page: page, limit: perPage);
+  }
+
+  /// Get property by ID (static version)
+  static Future<Property> getPropertyByIdStatic(String id) async {
+    final service = PropertiesService();
+    final property = await service.getPropertyById(id);
+    if (property == null) {
+      throw Exception('Property not found');
+    }
+    return property;
   }
 }
