@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../screens/AI/voice_chat_screen.dart';
-import 'voice_service.dart';
-import 'ai_service.dart';
+import '../AI/voice_service.dart';
+import '../AI/ai_service.dart';
 import '../../models/chat_message_model.dart';
 import '../../models/property_model.dart';
 import '../../screens/AI/live_voice_chat_screen.dart';
@@ -10,6 +10,7 @@ import '../../screens/AI/conversation_history_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../api_key_service.dart';
 
+/// Integration service that connects the graphic_eq button to the voice chat functionality
 class VoiceChatIntegrationService {
   static VoiceChatIntegrationService? _instance;
   static VoiceChatIntegrationService get instance =>
