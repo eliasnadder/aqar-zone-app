@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/property.dart';
+import '../models/property_model.dart';
 import '../services/properties_service.dart';
-import '../widgets/global_ai_chat_drawer.dart';
+import '../widgets/AI/global_ai_chat_drawer.dart';
 import '../widgets/enhanced_property_card.dart';
 import '../widgets/enhanced_loading_state.dart';
 import '../widgets/enhanced_empty_state.dart';
@@ -29,10 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadProperties() async {
     try {
-      // For demo purposes, using mock data
-      // Replace with actual API call:
-      //final properties = await PropertiesService.getProperties();
-      final properties = PropertiesService.getMockProperties();
+      final properties = await PropertiesService.getPropertiesStatic();
       setState(() {
         _properties = properties;
         _isLoading = false;
@@ -94,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       top: Radius.circular(20),
                     ),
                   ),
-                  child: const GlobalAIChatDrawer(),
+                  child: GlobalAIChatDrawer(properties: _properties),
                 ),
           ),
     );
