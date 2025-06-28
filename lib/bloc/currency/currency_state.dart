@@ -51,11 +51,7 @@ class CurrencyLoaded extends CurrencyState {
   }
 
   String get selectedCurrencySymbol {
-    const symbols = {
-      'USD': '\$',
-      'AED': 'د.إ',
-      'SYP': 'ل.س',
-    };
+    const symbols = {'USD': '\$', 'AED': 'AED', 'SYP': 'SYP'};
     return symbols[selectedCurrency] ?? selectedCurrency;
   }
 
@@ -77,11 +73,11 @@ class CurrencyLoaded extends CurrencyState {
   Duration? get timeUntilRefresh {
     final nextRefresh = lastUpdate.add(refreshInterval);
     final now = DateTime.now();
-    
+
     if (nextRefresh.isAfter(now)) {
       return nextRefresh.difference(now);
     }
-    
+
     return null;
   }
 
@@ -285,10 +281,7 @@ class CurrencyBackedUp extends CurrencyState {
   final DateTime backupTime;
   final int dataSize;
 
-  const CurrencyBackedUp({
-    required this.backupTime,
-    required this.dataSize,
-  });
+  const CurrencyBackedUp({required this.backupTime, required this.dataSize});
 
   @override
   List<Object?> get props => [backupTime, dataSize];

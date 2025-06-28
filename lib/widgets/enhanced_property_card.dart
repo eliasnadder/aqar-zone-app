@@ -359,33 +359,45 @@ class _EnhancedPropertyCardState extends State<EnhancedPropertyCard>
               children: [
                 Consumer<CurrencyProvider>(
                   builder: (context, currencyProvider, child) {
-                    final convertedPrice = currencyProvider.convertToSelected(
+                    final formattedPrice = currencyProvider.getFormattedPrice(
                       widget.property.price,
                       widget.property.currency,
                     );
-                    final formattedPrice = currencyProvider.formatAmount(
-                      convertedPrice,
-                    );
 
-                    return Text(
-                      formattedPrice,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    return Row(
+                      children: [
+                        Text(
+                          formattedPrice,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (currencyProvider.isLoading) ...[
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
                 Consumer<CurrencyProvider>(
                   builder: (context, currencyProvider, child) {
                     if (widget.property.area > 0) {
-                      final convertedPrice = currencyProvider.convertToSelected(
-                        widget.property.price,
-                        widget.property.currency,
-                      );
-                      final pricePerSqm = convertedPrice / widget.property.area;
+                      final pricePerSqm =
+                          widget.property.price / widget.property.area;
                       final formattedPricePerSqm = currencyProvider
-                          .formatAmount(pricePerSqm);
+                          .getFormattedPrice(
+                            pricePerSqm,
+                            widget.property.currency,
+                          );
 
                       return Text(
                         '$formattedPricePerSqm/m²',

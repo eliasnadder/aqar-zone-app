@@ -452,9 +452,9 @@ class _CurrencyBottomSheetState extends State<CurrencyBottomSheet>
                         ),
                       ),
                     ),
-                    if (rate != null && currency != 'USD')
+                    if (rate != null && currency != widget.selectedCurrency)
                       Text(
-                        '1 USD = ${rate.toStringAsFixed(2)} $currency',
+                        '1 ${widget.selectedCurrency} = ${rate.toStringAsFixed(2)} $currency',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary.withValues(
                             alpha: 0.7,

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/property_model.dart';
 import 'gemini_service.dart';
 import '../api_key_service.dart';
+import '../currency_service.dart';
 
 class GlobalAISuggestionsService {
   static const String _globalSuggestionsKey = 'global_ai_suggestions';
@@ -215,8 +216,8 @@ Are there any luxury options?''';
 
     // Use a consistent currency for the range (USD as default)
     const currency = 'USD';
-    final minFormatted = Property.formatPrice(prices.first, currency);
-    final maxFormatted = Property.formatPrice(prices.last, currency);
+    final minFormatted = CurrencyService.formatCurrency(prices.first, currency);
+    final maxFormatted = CurrencyService.formatCurrency(prices.last, currency);
 
     return {'min': minFormatted, 'max': maxFormatted};
   }

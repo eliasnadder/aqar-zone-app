@@ -4,7 +4,7 @@ import '../services/currency_service.dart';
 
 class CurrencyProvider extends ChangeNotifier {
   static const String _selectedCurrencyKey = 'selected_currency';
-  
+
   String _selectedCurrency = 'USD';
   Map<String, double> _exchangeRates = {};
   bool _isLoading = false;
@@ -17,11 +17,11 @@ class CurrencyProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   DateTime? get lastUpdate => _lastUpdate;
   String? get error => _error;
-  
-  String get selectedCurrencySymbol => 
+
+  String get selectedCurrencySymbol =>
       CurrencyService.getCurrencySymbol(_selectedCurrency);
-  
-  String get selectedCurrencyName => 
+
+  String get selectedCurrencyName =>
       CurrencyService.getCurrencyName(_selectedCurrency);
 
   CurrencyProvider() {
@@ -34,8 +34,8 @@ class CurrencyProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedCurrency = prefs.getString(_selectedCurrencyKey);
-      
-      if (savedCurrency != null && 
+
+      if (savedCurrency != null &&
           CurrencyService.supportedCurrencies.contains(savedCurrency)) {
         _selectedCurrency = savedCurrency;
         notifyListeners();
@@ -60,15 +60,33 @@ class CurrencyProvider extends ChangeNotifier {
     if (!CurrencyService.supportedCurrencies.contains(currency)) {
       throw ArgumentError('Unsupported currency: $currency');
     }
-    
+
     if (_selectedCurrency != currency) {
-      _selectedCurrency = currency;
-      await _saveSelectedCurrency();
-      
-      // Reload exchange rates with new base currency
-      await _loadExchangeRates(forceRefresh: true);
-      
+      final oldCurrency = _selectedCurrency;
+
+      // Set loading state
+      _isLoading = true;
+      _error = null;
       notifyListeners();
+
+      try {
+        // Update selected currency
+        _selectedCurrency = currency;
+        await _saveSelectedCurrency();
+
+        // Reload exchange rates with new base currency
+        await _loadExchangeRates(forceRefresh: true);
+
+        _isLoading = false;
+        notifyListeners();
+      } catch (e) {
+        // Revert currency change on error
+        _selectedCurrency = oldCurrency;
+        _isLoading = false;
+        _error = 'Failed to change currency: ${e.toString()}';
+        notifyListeners();
+        rethrow;
+      }
     }
   }
 
@@ -83,17 +101,17 @@ class CurrencyProvider extends ChangeNotifier {
         baseCurrency: _selectedCurrency,
         forceRefresh: forceRefresh,
       );
-      
+
       _exchangeRates = rates;
       _lastUpdate = await CurrencyService.getLastUpdateTime();
       _isLoading = false;
-      
+
       notifyListeners();
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
-      
+
       debugPrint('Error loading exchange rates: $e');
     }
   }
@@ -106,68 +124,46 @@ class CurrencyProvider extends ChangeNotifier {
   /// Convert amount from selected currency to target currency
   double convertFromSelected(double amount, String targetCurrency) {
     if (_selectedCurrency == targetCurrency) return amount;
-    
+
     try {
-      if (_selectedCurrency == 'USD') {
-        // Converting from USD to other currency
-        final rate = _exchangeRates[targetCurrency];
-        if (rate != null) {
-          return amount * rate;
-        }
-      } else if (targetCurrency == 'USD') {
-        // Converting to USD from selected currency
-        final rate = _exchangeRates[_selectedCurrency];
-        if (rate != null && rate != 0) {
-          return amount / rate;
-        }
-      } else {
-        // Converting between two non-USD currencies
-        final fromRate = _exchangeRates[_selectedCurrency];
-        final toRate = _exchangeRates[targetCurrency];
-        
-        if (fromRate != null && toRate != null && fromRate != 0) {
-          final usdAmount = amount / fromRate;
-          return usdAmount * toRate;
-        }
+      // The exchange rates are fetched with the selected currency as base
+      // So to convert FROM selected currency TO target currency, we multiply by the rate
+      final rate = _exchangeRates[targetCurrency];
+      if (rate != null) {
+        return amount * rate;
       }
     } catch (e) {
       debugPrint('Error converting currency: $e');
     }
-    
+
     return amount; // Return original amount if conversion fails
   }
 
   /// Convert amount to selected currency from source currency
   double convertToSelected(double amount, String sourceCurrency) {
     if (sourceCurrency == _selectedCurrency) return amount;
-    
+
+    // If loading or no rates available, don't convert - keep original amount
+    if (_isLoading || _exchangeRates.isEmpty) {
+      return amount;
+    }
+
     try {
-      if (sourceCurrency == 'USD') {
-        // Converting from USD to selected currency
-        final rate = _exchangeRates[_selectedCurrency];
-        if (rate != null) {
-          return amount * rate;
-        }
-      } else if (_selectedCurrency == 'USD') {
-        // Converting to USD from source currency
-        final rate = _exchangeRates[sourceCurrency];
-        if (rate != null && rate != 0) {
-          return amount / rate;
-        }
-      } else {
-        // Converting between two non-USD currencies
-        final fromRate = _exchangeRates[sourceCurrency];
-        final toRate = _exchangeRates[_selectedCurrency];
-        
-        if (fromRate != null && toRate != null && fromRate != 0) {
-          final usdAmount = amount / fromRate;
-          return usdAmount * toRate;
-        }
+      // The exchange rates are fetched with the selected currency as base
+      // So _selectedCurrency always has rate 1.0, and other currencies have rates relative to it
+      // For example, if selected currency is USD and rates are {USD: 1.0, AED: 3.67, SYP: 2500}
+      // This means 1 USD = 3.67 AED = 2500 SYP
+
+      final rate = _exchangeRates[sourceCurrency];
+      if (rate != null && rate != 0) {
+        // To convert FROM source currency TO selected currency,
+        // we divide by the rate since the rate tells us how many source currency units = 1 selected currency unit
+        return amount / rate;
       }
     } catch (e) {
       debugPrint('Error converting currency: $e');
     }
-    
+
     return amount; // Return original amount if conversion fails
   }
 
@@ -186,7 +182,12 @@ class CurrencyProvider extends ChangeNotifier {
     if (originalCurrency == _selectedCurrency) {
       return formatAmount(originalAmount);
     }
-    
+
+    // If loading, show original price with original currency
+    if (_isLoading) {
+      return CurrencyService.formatCurrency(originalAmount, originalCurrency);
+    }
+
     final convertedAmount = convertToSelected(originalAmount, originalCurrency);
     return formatAmount(convertedAmount);
   }
@@ -194,7 +195,7 @@ class CurrencyProvider extends ChangeNotifier {
   /// Get exchange rate between two currencies
   double? getExchangeRate(String fromCurrency, String toCurrency) {
     if (fromCurrency == toCurrency) return 1.0;
-    
+
     try {
       if (fromCurrency == 'USD') {
         return _exchangeRates[toCurrency];
@@ -204,7 +205,7 @@ class CurrencyProvider extends ChangeNotifier {
       } else {
         final fromRate = _exchangeRates[fromCurrency];
         final toRate = _exchangeRates[toCurrency];
-        
+
         if (fromRate != null && toRate != null && fromRate != 0) {
           return toRate / fromRate;
         }
@@ -212,14 +213,14 @@ class CurrencyProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error getting exchange rate: $e');
     }
-    
+
     return null;
   }
 
   /// Check if rates need refresh (older than 6 hours)
   bool get needsRefresh {
     if (_lastUpdate == null) return true;
-    
+
     final now = DateTime.now();
     final difference = now.difference(_lastUpdate!);
     return difference.inHours >= 6;
@@ -228,14 +229,14 @@ class CurrencyProvider extends ChangeNotifier {
   /// Get time until next recommended refresh
   Duration? get timeUntilRefresh {
     if (_lastUpdate == null) return null;
-    
+
     final nextRefresh = _lastUpdate!.add(const Duration(hours: 6));
     final now = DateTime.now();
-    
+
     if (nextRefresh.isAfter(now)) {
       return nextRefresh.difference(now);
     }
-    
+
     return null;
   }
 

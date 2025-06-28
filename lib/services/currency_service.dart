@@ -122,33 +122,12 @@ class CurrencyService {
         throw Exception('No exchange rates available');
       }
 
-      if (fromCurrency == 'USD') {
-        // Converting from USD to other currency
-        final rate = rates[toCurrency];
-        if (rate != null && rate > 0 && rate.isFinite) {
-          return amount * rate;
-        }
-      } else if (toCurrency == 'USD') {
-        // Converting to USD from other currency
-        final rate = rates[fromCurrency];
-        if (rate != null && rate > 0 && rate.isFinite) {
-          return amount / rate;
-        }
-      } else {
-        // Converting between two non-USD currencies
-        // First convert to USD, then to target currency
-        final fromRate = rates[fromCurrency];
-        final toRate = rates[toCurrency];
-
-        if (fromRate != null &&
-            toRate != null &&
-            fromRate > 0 &&
-            toRate > 0 &&
-            fromRate.isFinite &&
-            toRate.isFinite) {
-          final usdAmount = amount / fromRate;
-          return usdAmount * toRate;
-        }
+      // The rates are fetched with fromCurrency as base
+      // So fromCurrency has rate 1.0, and other currencies have rates relative to it
+      // To convert FROM fromCurrency TO toCurrency, we multiply by the rate
+      final rate = rates[toCurrency];
+      if (rate != null && rate > 0 && rate.isFinite) {
+        return amount * rate;
       }
 
       // If conversion fails, return original amount as fallback

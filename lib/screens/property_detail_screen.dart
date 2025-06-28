@@ -11,6 +11,7 @@ import '../widgets/interactive_map_widget.dart';
 import '../widgets/agent_contact_widget.dart';
 import '../widgets/currency_selector.dart';
 import '../providers/currency_provider.dart';
+import '../services/currency_service.dart';
 
 class PropertyDetailScreen extends StatefulWidget {
   final Property property;
@@ -578,9 +579,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                       Expanded(
                         child: Consumer<CurrencyProvider>(
                           builder: (context, currencyProvider, child) {
-                            // Convert price to selected currency
-                            final convertedPrice = currencyProvider
-                                .convertToSelected(
+                            // Get formatted price with proper currency handling
+                            final formattedPrice = currencyProvider
+                                .getFormattedPrice(
                                   widget.property.price,
                                   widget.property.currency,
                                 );
@@ -588,18 +589,35 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  currencyProvider.formatAmount(convertedPrice),
-                                  style: theme.textTheme.headlineLarge
-                                      ?.copyWith(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        formattedPrice,
+                                        style: theme.textTheme.headlineLarge
+                                            ?.copyWith(
+                                              color: theme.colorScheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
+                                    ),
+                                    if (currencyProvider.isLoading) ...[
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 if (currencyProvider.selectedCurrency !=
                                     widget.property.currency)
                                   Text(
-                                    'Original: ${widget.property.formattedPrice}',
+                                    'Original: ${CurrencyService.formatCurrency(widget.property.price, widget.property.currency)}',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurface
                                           .withValues(alpha: 0.5),
@@ -607,7 +625,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                                     ),
                                   ),
                                 Text(
-                                  '${currencyProvider.formatAmountInCurrency(convertedPrice / widget.property.area, currencyProvider.selectedCurrency)}/m²',
+                                  '${currencyProvider.getFormattedPrice(widget.property.price / widget.property.area, widget.property.currency)}/m²',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.6),
@@ -1320,11 +1338,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       context,
       listen: false,
     );
-    final convertedPrice = currencyProvider.convertToSelected(
+    final formattedPrice = currencyProvider.getFormattedPrice(
       widget.property.price,
       widget.property.currency,
     );
-    final formattedPrice = currencyProvider.formatAmount(convertedPrice);
 
     final propertyText = '''
 🏠 ${widget.property.title}
