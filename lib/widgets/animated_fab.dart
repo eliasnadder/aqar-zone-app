@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class AnimatedFAB extends StatefulWidget {
   final VoidCallback onPressed;
@@ -32,45 +33,33 @@ class _AnimatedFABState extends State<AnimatedFAB>
   @override
   void initState() {
     super.initState();
-    
+
     _scaleController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _rotationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.9,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.easeInOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
 
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.1,
-    ).animate(CurvedAnimation(
-      parent: _rotationController,
-      curve: Curves.elasticOut,
-    ));
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.1).animate(
+      CurvedAnimation(parent: _rotationController, curve: Curves.elasticOut),
+    );
 
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     // Start subtle pulse animation
     _pulseController.repeat(reverse: true);
@@ -97,7 +86,7 @@ class _AnimatedFABState extends State<AnimatedFAB>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return AnimatedBuilder(
       animation: Listenable.merge([
         _scaleAnimation,
@@ -138,12 +127,14 @@ class _AnimatedFABState extends State<AnimatedFAB>
               child: FloatingActionButton(
                 onPressed: _handleTap,
                 backgroundColor: Colors.transparent,
-                foregroundColor: widget.foregroundColor ?? theme.colorScheme.onPrimary,
+                foregroundColor:
+                    widget.foregroundColor ?? theme.colorScheme.onPrimary,
                 elevation: 0,
                 tooltip: widget.tooltip,
-                child: Icon(
-                  widget.icon,
-                  size: 28,
+                child: SvgPicture.asset(
+                  'assets/icons/siri-stroke-rounded.svg',
+                  width: 30,
+                  height: 30,
                 ),
               ),
             ),
@@ -178,35 +169,35 @@ class _AnimatedChatBubbleState extends State<AnimatedChatBubble>
   @override
   void initState() {
     super.initState();
-    
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      ),
+    );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+      ),
+    );
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.5),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
 
     if (widget.isVisible) {
       _controller.forward();
@@ -237,10 +228,7 @@ class _AnimatedChatBubbleState extends State<AnimatedChatBubble>
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: widget.child,
-        ),
+        child: ScaleTransition(scale: _scaleAnimation, child: widget.child),
       ),
     );
   }
