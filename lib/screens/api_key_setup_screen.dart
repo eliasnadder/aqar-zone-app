@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_key_service.dart';
-import '../services/gemini_service.dart';
+import '../services/AI/gemini_service.dart';
 
 class ApiKeySetupScreen extends StatefulWidget {
   final VoidCallback? onSetupComplete;
@@ -21,7 +22,6 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
   bool _isLoading = false;
   bool _isTestingKey = false;
   String? _errorMessage;
-  bool _disposed = false;
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -62,7 +62,6 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
 
   @override
   void dispose() {
-    _disposed = true;
     _apiKeyController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
@@ -73,7 +72,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
     final apiKey = _apiKeyController.text.trim();
 
     if (!ApiKeyService.isValidApiKeyFormat(apiKey)) {
-      if (!_disposed && mounted) {
+      if (mounted) {
         setState(() {
           _errorMessage =
               'Invalid API key format. Gemini API keys should start with "AIza".';
@@ -82,7 +81,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
       return;
     }
 
-    if (!_disposed && mounted) {
+    if (mounted) {
       setState(() {
         _isTestingKey = true;
         _errorMessage = null;
@@ -96,23 +95,23 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
       await GeminiService.testApiKey(
         apiKey: apiKey,
         onChunk: (chunk) {
-          if (!_disposed && mounted) {
-            hasReceivedResponse = true;
-            testResponse += chunk;
-          }
+          hasReceivedResponse = true;
+          testResponse += chunk;
         },
       );
 
-      if (!_disposed && hasReceivedResponse && testResponse.isNotEmpty) {
+      if (hasReceivedResponse && testResponse.isNotEmpty) {
         // API key works, save it and complete setup
         await _saveAndComplete(apiKey);
-      } else if (!_disposed && mounted) {
-        setState(() {
-          _errorMessage = 'No response received. Please check your API key.';
-        });
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'No response received. Please check your API key.';
+          });
+        }
       }
     } catch (error) {
-      if (!_disposed && mounted) {
+      if (mounted) {
         setState(() {
           if (error.toString().contains('Invalid API Key format')) {
             _errorMessage = 'API key format is invalid.';
@@ -127,7 +126,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
         });
       }
     } finally {
-      if (!_disposed && mounted) {
+      if (mounted) {
         setState(() {
           _isTestingKey = false;
         });
@@ -136,7 +135,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
   }
 
   Future<void> _saveAndComplete(String apiKey) async {
-    if (!_disposed && mounted) {
+    if (mounted) {
       setState(() {
         _isLoading = true;
       });
@@ -144,7 +143,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
 
     final success = await _apiKeyService.saveApiKey(apiKey);
 
-    if (!_disposed && success) {
+    if (success) {
       // Show success message briefly
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -159,21 +158,66 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
       // Wait a moment then complete setup
       await Future.delayed(const Duration(milliseconds: 500));
 
-      if (!_disposed && mounted && widget.onSetupComplete != null) {
+      if (mounted && widget.onSetupComplete != null) {
         widget.onSetupComplete!();
       }
-    } else if (!_disposed && mounted) {
-      setState(() {
-        _errorMessage = 'Failed to save API key. Please try again.';
-        _isLoading = false;
-      });
+    } else {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to save API key. Please try again.';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   void _skipSetup() {
     _apiKeyService.markSetupCompleted();
-    if (!_disposed && mounted && widget.onSetupComplete != null) {
+    if (widget.onSetupComplete != null) {
       widget.onSetupComplete!();
+    }
+  }
+
+  Future<void> _scanQRCode() async {
+    try {
+      // Show QR scanner screen
+      final result = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+      );
+
+      if (result != null && result.isNotEmpty) {
+        // Validate if the scanned result looks like an API key
+        if (ApiKeyService.isValidApiKeyFormat(result)) {
+          if (mounted) {
+            setState(() {
+              _apiKeyController.text = result;
+              _errorMessage = null;
+            });
+
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ API key scanned successfully!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _errorMessage =
+                  'Scanned QR code does not contain a valid API key format.';
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to scan QR code. Please try again.';
+        });
+      }
     }
   }
 
@@ -294,7 +338,7 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
                                                 : Icons.visibility_off_rounded,
                                           ),
                                           onPressed: () {
-                                            if (!_disposed && mounted) {
+                                            if (mounted) {
                                               setState(() {
                                                 _obscureApiKey =
                                                     !_obscureApiKey;
@@ -313,15 +357,55 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
                                         fontFamily: 'monospace',
                                       ),
                                       onChanged: (value) {
-                                        if (_errorMessage != null &&
-                                            !_disposed &&
-                                            mounted) {
+                                        if (_errorMessage != null && mounted) {
                                           setState(() {
                                             _errorMessage = null;
                                           });
                                         }
                                       },
                                       onSubmitted: (_) => _testApiKey(),
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // QR Code Scanner Button
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed:
+                                            _isLoading || _isTestingKey
+                                                ? null
+                                                : _scanQRCode,
+                                        icon: Icon(
+                                          Icons.qr_code_scanner_rounded,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                        label: Text(
+                                          'Scan QR Code',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          side: BorderSide(
+                                            color: theme.colorScheme.primary
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                          backgroundColor: theme
+                                              .colorScheme
+                                              .primary
+                                              .withValues(alpha: 0.05),
+                                        ),
+                                      ),
                                     ),
 
                                     const SizedBox(height: 24),
@@ -440,6 +524,288 @@ class _ApiKeySetupScreenState extends State<ApiKeySetupScreen>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// QR Scanner Screen with real camera functionality
+class QRScannerScreen extends StatefulWidget {
+  const QRScannerScreen({Key? key}) : super(key: key);
+
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  MobileScannerController cameraController = MobileScannerController();
+  final TextEditingController _manualInputController = TextEditingController();
+  bool _isScanning = true;
+
+  @override
+  void dispose() {
+    cameraController.dispose();
+    _manualInputController.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (!_isScanning) return;
+
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isNotEmpty) {
+      final String? code = barcodes.first.rawValue;
+      if (code != null && code.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _isScanning = false;
+          });
+        }
+
+        // Vibrate to indicate successful scan
+        HapticFeedback.mediumImpact();
+
+        // Return the scanned code
+        if (mounted) {
+          Navigator.of(context).pop(code);
+        }
+      }
+    }
+  }
+
+  void _showManualInputDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Enter API Key Manually'),
+            content: TextField(
+              controller: _manualInputController,
+              decoration: const InputDecoration(
+                labelText: 'API Key',
+                hintText: 'Paste your API key here',
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontFamily: 'monospace'),
+              maxLines: 3,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final apiKey = _manualInputController.text.trim();
+                  if (apiKey.isNotEmpty) {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pop(apiKey);
+                  }
+                },
+                child: const Text('Use This Key'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: const Text('Scan QR Code'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.keyboard_rounded),
+            onPressed: _showManualInputDialog,
+            tooltip: 'Enter manually',
+          ),
+          IconButton(
+            icon: Icon(
+              _isScanning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            ),
+            onPressed: () {
+              if (mounted) {
+                setState(() {
+                  _isScanning = !_isScanning;
+                });
+                if (_isScanning) {
+                  cameraController.start();
+                } else {
+                  cameraController.stop();
+                }
+              }
+            },
+            tooltip: _isScanning ? 'Pause scanning' : 'Resume scanning',
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Mobile Scanner Camera View
+          MobileScanner(controller: cameraController, onDetect: _onDetect),
+
+          // Scanning overlay
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.5),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Scanning frame with corner indicators
+                  SizedBox(
+                    width: 250,
+                    height: 250,
+                    child: Stack(
+                      children: [
+                        // Transparent center for camera view
+                        Center(
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.transparent,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+
+                        // Corner indicators
+                        ...List.generate(4, (index) {
+                          return Positioned(
+                            top: index < 2 ? 0 : null,
+                            bottom: index >= 2 ? 0 : null,
+                            left: index % 2 == 0 ? 0 : null,
+                            right: index % 2 == 1 ? 0 : null,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top:
+                                      index < 2
+                                          ? BorderSide(
+                                            color: theme.colorScheme.primary,
+                                            width: 4,
+                                          )
+                                          : BorderSide.none,
+                                  bottom:
+                                      index >= 2
+                                          ? BorderSide(
+                                            color: theme.colorScheme.primary,
+                                            width: 4,
+                                          )
+                                          : BorderSide.none,
+                                  left:
+                                      index % 2 == 0
+                                          ? BorderSide(
+                                            color: theme.colorScheme.primary,
+                                            width: 4,
+                                          )
+                                          : BorderSide.none,
+                                  right:
+                                      index % 2 == 1
+                                          ? BorderSide(
+                                            color: theme.colorScheme.primary,
+                                            width: 4,
+                                          )
+                                          : BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Instructions
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.qr_code_scanner_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _isScanning
+                              ? 'Scanning for QR Code...'
+                              : 'Scanning Paused',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Position the QR code within the frame. The API key will be detected automatically.',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(20),
+        color: Colors.black,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showManualInputDialog,
+                icon: const Icon(Icons.keyboard_rounded),
+                label: const Text('Enter API Key Manually'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Position the QR code within the frame to scan',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
