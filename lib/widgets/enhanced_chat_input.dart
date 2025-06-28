@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class EnhancedChatInput extends StatefulWidget {
   final TextEditingController messageController;
   final VoidCallback onSendMessage;
+  final VoidCallback? onVoiceModeToggle;
   final bool isLoading;
   final bool isEnabled;
   final String hintText;
@@ -11,6 +12,7 @@ class EnhancedChatInput extends StatefulWidget {
     Key? key,
     required this.messageController,
     required this.onSendMessage,
+    this.onVoiceModeToggle,
     this.isLoading = false,
     this.isEnabled = true,
     this.hintText = 'Type your message...',
@@ -94,6 +96,15 @@ class _EnhancedChatInputState extends State<EnhancedChatInput>
     });
   }
 
+  void _handleVoiceModeToggle() {
+    if (widget.onVoiceModeToggle != null) {
+      _scaleController.forward().then((_) {
+        _scaleController.reverse();
+        widget.onVoiceModeToggle!();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -126,14 +137,18 @@ class _EnhancedChatInputState extends State<EnhancedChatInput>
                     horizontal: 16,
                     vertical: 8,
                   ),
+                  suffixIcon: IconButton(
+                    onPressed: () {},
+                    icon: Icon(
+                      Icons.mic,
+                      size: 25,
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
                   filled: true,
                   fillColor: Colors.transparent,
-                  prefixIcon: Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    size: 20,
-                  ),
                 ),
+
                 style: TextStyle(
                   fontSize: 15,
                   color: theme.colorScheme.onSurface,
@@ -169,24 +184,27 @@ class _EnhancedChatInputState extends State<EnhancedChatInput>
 
   Widget _buildSendButton(ThemeData theme) {
     final canSend = widget.isEnabled && _hasText && !widget.isLoading;
+    final showVoiceButton = !canSend && !widget.isLoading;
 
     return Container(
-      width: 36,
-      height: 36,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color:
-            canSend
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outline.withValues(alpha: 0.3),
+        color: theme.colorScheme.primary,
       ),
       child: IconButton(
-        onPressed: canSend ? _handleSendPressed : null,
+        onPressed:
+            canSend
+                ? _handleSendPressed
+                : showVoiceButton
+                ? _handleVoiceModeToggle
+                : null,
         icon:
             widget.isLoading
                 ? SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: 25,
+                  height: 25,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor: AlwaysStoppedAnimation<Color>(
@@ -194,13 +212,16 @@ class _EnhancedChatInputState extends State<EnhancedChatInput>
                     ),
                   ),
                 )
-                : Icon(
+                : canSend
+                ? Icon(
                   Icons.send_rounded,
-                  size: 16,
-                  color:
-                      canSend
-                          ? theme.colorScheme.onPrimary
-                          : theme.colorScheme.outline,
+                  size: 25,
+                  color: theme.colorScheme.onPrimary,
+                )
+                : Icon(
+                  Icons.graphic_eq,
+                  size: 25,
+                  color: theme.colorScheme.onPrimary,
                 ),
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
