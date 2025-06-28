@@ -426,7 +426,9 @@ class _InteractiveMapWidgetState extends State<InteractiveMapWidget> {
                 });
               },
               icon: Icon(
-                _tileMode == TileMode.street ? Icons.satellite : Icons.map,
+                _tileMode == TileMode.street
+                    ? Icons.satellite_alt_outlined
+                    : Icons.map,
                 color: theme.colorScheme.primary,
               ),
               tooltip:
@@ -460,7 +462,7 @@ class _InteractiveMapWidgetState extends State<InteractiveMapWidget> {
           // External map button
           Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -472,7 +474,7 @@ class _InteractiveMapWidgetState extends State<InteractiveMapWidget> {
             ),
             child: IconButton(
               onPressed: _openLargeMap,
-              icon: Icon(Icons.open_in_new, color: theme.colorScheme.primary),
+              icon: Icon(Icons.navigation, color: theme.colorScheme.surface),
               tooltip: 'Open in Google Maps',
             ),
           ),
